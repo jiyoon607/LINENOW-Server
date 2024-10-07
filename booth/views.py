@@ -9,6 +9,9 @@ from rest_framework import viewsets, mixins
 from utils.mixins import CustomResponseMixin
 from utils.responses import custom_response
 from utils.exceptions import *
+from waiting.serializers import *
+from waiting.models import Waiting
+from accounts.serializers import UserSerializer
 
 class BoothViewSet(CustomResponseMixin, viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.ListModelMixin):
     queryset = Booth.objects.all()
@@ -24,6 +27,14 @@ class BoothViewSet(CustomResponseMixin, viewsets.GenericViewSet, mixins.Retrieve
     def get_queryset(self):
         queryset = Booth.objects.annotate(waiting_count=Count('waitings'))
         return queryset
+    
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        try:
+            booth = Booth.objects.get(pk=pk)
+        except Waiting.DoesNotExist:
+            raise ResourceNotFound("The requested waiting information was not found.")
+        serializer = self.get_serializer(booth)
+        return custom_response(data=serializer.data, message="My Waiting details fetched successfully.", code=status.HTTP_200_OK)
     
     # def create(self, request, *args, **kwargs):
     #     serializer = self.get_serializer(data=request.data)

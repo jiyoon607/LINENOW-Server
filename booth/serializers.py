@@ -13,11 +13,13 @@ class BoothListSerializer(serializers.ModelSerializer):
     # 사용자 대기 관련
     is_waiting = serializers.SerializerMethodField()
     waiting_status = serializers.SerializerMethodField()
+    waiting_teams_ahead = serializers.SerializerMethodField()
+    total_waiting_teams = serializers.SerializerMethodField()
 
     class Meta:
         model = Booth
-        fields = ['id', 'name', 'description', 'location', 'is_operated', 'thumbnail', 'waiting_count', 'is_waiting', 'waiting_status']
-
+        fields = ['id', 'name', 'description', 'location', 'is_operated', 'thumbnail', 'waiting_count', 'is_waiting', 'waiting_status', 'waiting_teams_ahead', 'total_waiting_teams']
+    
     def get_thumbnail(self, obj):
         # 첫 번째 이미지가 썸네일 ! !
         
@@ -52,6 +54,33 @@ class BoothListSerializer(serializers.ModelSerializer):
                 return waiting.waiting_status
         return None
     
+    def get_waiting_teams_ahead(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            my_waiting = Waiting.objects.filter(user=request.user, booth=obj)
+            if my_waiting:
+                return Waiting.objects.filter(
+                            booth=obj,
+                            waiting_status__in=['waiting', 'ready_to_confirm', 'confirmed'],  
+                            created_at__lt=my_waiting.created_at 
+                        ).count()
+        return False
+        
+    def get_total_waiting_teams(self, obj):
+        return Waiting.objects.filter(
+                booth=obj,
+                waiting_status__in=['waiting', 'ready_to_confirm', 'confirmed'],  
+            ).count()
+    
+    def to_representation(self, instance):
+        # 기본 직렬화 데이터를 가져옴
+        data = super().to_representation(instance)
+        # 추가적인 필드 출력
+        data['waiting_teams_ahead'] = self.get_waiting_teams_ahead(instance)
+        data['total_waiting_teams'] = self.get_total_waiting_teams(instance)
+        return data
+
+    
 class BoothImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = BoothImage
@@ -64,10 +93,12 @@ class BoothDetailSerializer(serializers.ModelSerializer):
     # 사용자 대기 관련
     is_waiting = serializers.SerializerMethodField()
     waiting_status = serializers.SerializerMethodField()
+    waiting_teams_ahead = serializers.SerializerMethodField()
+    total_waiting_teams = serializers.SerializerMethodField()
 
     class Meta:
         model = Booth
-        fields = ['id', 'name', 'description', 'location', 'caution', 'is_operated', 'images', 'menu', 'open_time', 'close_time', 'waiting_count', 'is_waiting', 'waiting_status']
+        fields = ['id', 'name', 'description', 'location', 'caution', 'is_operated', 'images', 'menu', 'open_time', 'close_time', 'waiting_count', 'is_waiting', 'waiting_status', 'waiting_teams_ahead', 'total_waiting_teams']
 
     def get_waiting_count(self, obj):
         return obj.waitings.count()
@@ -86,3 +117,29 @@ class BoothDetailSerializer(serializers.ModelSerializer):
             if waiting:
                 return waiting.waiting_status
         return None
+    
+    def get_waiting_teams_ahead(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            my_waiting = Waiting.objects.filter(user=request.user, booth=obj)
+            if my_waiting:
+                return Waiting.objects.filter(
+                            booth=obj,
+                            waiting_status__in=['waiting', 'ready_to_confirm', 'confirmed'],  
+                            created_at__lt=my_waiting.created_at 
+                        ).count()
+        return False
+        
+    def get_total_waiting_teams(self, obj):
+        return Waiting.objects.filter(
+                booth=obj,
+                waiting_status__in=['waiting', 'ready_to_confirm', 'confirmed'],  
+            ).count()
+    
+    def to_representation(self, instance):
+        # 기본 직렬화 데이터를 가져옴
+        data = super().to_representation(instance)
+        # 추가적인 필드 출력
+        data['waiting_teams_ahead'] = self.get_waiting_teams_ahead(instance)
+        data['total_waiting_teams'] = self.get_total_waiting_teams(instance)
+        return data
